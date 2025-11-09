@@ -66,8 +66,8 @@ class UserResource:
                 - email: Email address
                 - mobile: Mobile phone number
                 - employee_alias: Employee identifier
-                - employment: List of employment records
-                - userroles: List of user roles
+                - work_for: Employment info (dict with department and company URLs)
+                - userroles: List of user role URLs
 
         Returns:
             Created user details
@@ -80,17 +80,12 @@ class UserResource:
                 "email": "john.doe@example.com",
                 "mobile": "12345678",
                 "employee_alias": "EMP001",
-                "employment": [
-                    {
-                        "department": "https://api.norsktest.no/finautapi/v1/departments/123/",
-                        "start_date": "2024-01-01"
-                    }
-                ],
+                "work_for": {
+                    "department": "https://api.norsktest.no/finautapi/v1/departments/123/",
+                    "company": "https://api.norsktest.no/finautapi/v1/companies/456/"
+                },
                 "userroles": [
-                    {
-                        "company": "https://api.norsktest.no/finautapi/v1/companies/456/",
-                        "usertype": "KA"  # Kandidat
-                    }
+                    "https://api.norsktest.no/finautapi/v1/userrole/afr_ka/"
                 ]
             }
         """

@@ -57,7 +57,7 @@ def main():
         if companies.get('results'):
             print(f"\n✓ Found {len(companies['results'])} accessible companies:")
             for company in companies['results'][:3]:  # Show first 3
-                print(f"  - {company.get('name', 'Unknown')} (ID: {company.get('id')})")
+                print(f"  - {company.get('company_name', 'Unknown')} (ID: {company.get('id')})")
         else:
             print("No companies found (this might be normal for your account)")
 

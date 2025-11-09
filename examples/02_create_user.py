@@ -8,6 +8,7 @@ with employment and role information.
 
 import os
 import sys
+import json
 from pathlib import Path
 from datetime import date
 
@@ -35,35 +36,43 @@ def main():
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         host=API_HOST,
-        debug=False  # Set to True to see request details
+        debug=True  # Enable debug to see request/response details
     )
 
-    # Example user data
-    # NOTE: You'll need to adjust the department and company IDs to match
-    # actual entities you have access to in your FinAut instance
+    # Example user data based on the actual API format
+    # We learned from the debug script that:
+    # - userroles are URLs like /userrole/afr_ka/ where afr=ordning, ka=usertype
+    # - work_for points to the company
+    # - employment contains department info
+
+    # Based on existing users, the field is 'work_for' with company and department
     user_data = {
-        "persnr": "01234567890",  # Norwegian SSN (11 digits)
+        "persnr": "55110094247",  # (valid) Norwegian SSN or D-number (11 digits)
         "first_name": "Test",
-        "last_name": "Bruker",
+        "last_name": "Testesen",
         "email": "test.bruker@example.com",
         "mobile": "12345678",
         "employee_alias": "EMP001",
-        "employment": [
-            {
-                # You'll need to replace 123 with an actual department ID
-                "department": f"{client.base_url}departments/123/",
-                "start_date": date.today().isoformat(),
-            }
-        ],
+        # work_for contains the employment info
+        "work_for": {
+            "department": f"{client.base_url}departments/2266/",  # Testavdeling
+            "company": f"{client.base_url}companies/2265/",  # Testfirma
+        },
+        # User roles as URLs
         "userroles": [
-            {
-                # You'll need to replace 456 with an actual company ID
-                "company": f"{client.base_url}companies/456/",
-                "usertype": "KA"  # Kandidat (candidate)
-                # Other options: BA (Bedriftsansvarlig), TL (Tillitsvalgt)
-            }
+            f"{client.base_url}userrole/afr_ka/"  # AFR Kandidat role
         ]
     }
+
+    # Debug: Print the data being sent
+    print("\nData being sent:")
+    print(json.dumps(user_data, indent=2))
+
+    # Alternative: If you need multiple roles
+    # "userroles": [
+    #     f"{client.base_url}userrole/afr_ka/",  # AFR Kandidat
+    #     f"{client.base_url}userrole/afr_ba/",  # AFR Bedriftsansvarlig
+    # ]
 
     try:
         # First, check if user already exists
@@ -79,7 +88,7 @@ def main():
             # Example: Update the existing user
             print("\nUpdating existing user's email...")
             updated_data = {"email": "updated.email@example.com"}
-            updated_user = client.users.partial_update(existing_user['id'], updated_data)
+            updated_user = client.users.partial_update(client.extract_id_from_url(existing_user['id']), updated_data)
             print(f"✓ Email updated to: {updated_user.get('email')}")
 
         else:
@@ -92,12 +101,15 @@ def main():
             new_user = client.users.create(user_data)
 
             print(f"\n✓ User created successfully!")
-            print(f"  User ID: {new_user['id']}")
-            print(f"  URL: {new_user['url']}")
+            print(f"  User URL: {new_user['id']}")
+
+            # Extract the numeric ID from the URL using helper method
+            user_id = client.extract_id_from_url(new_user['id'])
+            print(f"  User ID: {user_id}")
 
             # You can also retrieve the user to verify
             print("\nVerifying created user...")
-            verified_user = client.users.get(new_user['id'])
+            verified_user = client.users.get(user_id)
             print(f"✓ User verified: {verified_user['first_name']} {verified_user['last_name']}")
 
     except ValidationError as e:

@@ -3,6 +3,7 @@
 from typing import Optional, Dict, Any
 from urllib.parse import urljoin
 import requests
+from json import dumps
 from .auth import OAuth2Handler
 from .exceptions import (
     FinAutAPIException,
@@ -22,6 +23,9 @@ from .resources import (
     CompetencyResultResource,
     EmploymentResource,
 )
+
+
+DEBUG_TEXT_CUTOFF = 1750
 
 
 class FinAutAPIClient:
@@ -116,7 +120,7 @@ class FinAutAPIClient:
             if params:
                 print(f"[DEBUG] Params: {params}")
             if json:
-                print(f"[DEBUG] JSON: {json}")
+                print(f"[DEBUG] JSON: {dumps(json, indent=2)}")
 
         try:
             response = requests.request(
@@ -134,7 +138,15 @@ class FinAutAPIClient:
             # Debug response
             if self.debug:
                 print(f"[DEBUG] Response: {response.status_code}")
-                print(f"[DEBUG] Body: {response.text[:500]}")
+                rtxt = response.text
+                try:
+                    rtxt = dumps(response.json(), indent=2)
+                except:
+                    pass
+                if len(rtxt) > DEBUG_TEXT_CUTOFF:
+                    print(f"[DEBUG] Body: {rtxt[:DEBUG_TEXT_CUTOFF]}... [truncated]")
+                else:
+                    print(f"[DEBUG] Body: {rtxt[:DEBUG_TEXT_CUTOFF]}")
 
             # Handle errors
             self._handle_response_errors(response)
@@ -224,3 +236,23 @@ class FinAutAPIClient:
             if self.debug:
                 print(f"[DEBUG] Connection test failed: {e}")
             return False
+
+    @staticmethod
+    def extract_id_from_url(url: str) -> int:
+        """
+        Extract numeric ID from an API URL.
+
+        Args:
+            url: API URL like 'https://api.norsktest.no/finautapi/v1/user/590496/'
+
+        Returns:
+            Numeric ID (e.g., 590496)
+
+        Example:
+            >>> FinAutAPIClient.extract_id_from_url('https://api.norsktest.no/finautapi/v1/user/590496/')
+            590496
+        """
+        if not url:
+            raise ValueError("URL is empty")
+        # Remove trailing slash and get the last segment
+        return int(url.rstrip('/').split('/')[-1])

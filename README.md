@@ -228,11 +228,15 @@ The FinAut API can send webhook notifications for events. See `examples/06_webho
 The `examples/` directory contains complete, runnable examples:
 
 1. **01_basic_authentication.py** - Authentication and connection testing
-2. **02_create_user.py** - Creating and updating users
+2. Create users<sup>(*)</sup>:
+   1. **02_create_user.py** - Creating and updating users
+   2. **02b_create_user_in_franchise.py** - Creating users in franchise companies
 3. **03_list_and_search_users.py** - Listing and searching users
 4. **04_manage_user_status.py** - Managing user statuses in authorization schemes
 5. **05_handle_exam_results.py** - Working with exam and competency results
 6. **06_webhook_receiver.py** - Flask-based webhook receiver
+
+**<sup>(*)</sup> Note:** Running user creation examples will create real users in the FinAut test environment. Use caution and clean up test data as needed. finautapli-client/persnr.py contains helper functions to generate valid Norwegian personal numbers for testing.
 
 Run an example:
 ```bash
