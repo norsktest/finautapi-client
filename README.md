@@ -52,12 +52,19 @@ user = client.users.search_by_persnr('12345678901')
 if user:
     print(f"User: {user['first_name']} {user['last_name']}")
 
-# Create a new user
+# Create a new user (requires work_for and userroles)
 new_user = client.users.create({
     'persnr': '01234567890',
     'first_name': 'Test',
     'last_name': 'User',
-    'email': 'test@example.com'
+    'email': 'test@example.com',
+    'work_for': {
+        'department': 'https://api.norsktest.no/finautapi/v1/departments/123/',
+        'company': 'https://api.norsktest.no/finautapi/v1/companies/456/'
+    },
+    'userroles': [
+        'https://api.norsktest.no/finautapi/v1/userrole/afr_ka/'
+    ]
 })
 ```
 
@@ -132,19 +139,26 @@ department = client.departments.get(department_id=789)
 # List user statuses
 statuses = client.userstatus.list(persnr='12345678901')
 
-# Set user as active in authorization scheme
-status = client.userstatus.set_active(
-    user_id=123,
-    ordning_id=1,  # 1=AFR, 2=KRD, etc.
-    status_date='2024-01-01',
-    comment='Activated via API'
-)
+# Note: Setting user as 'aktiv' is NOT supported through the API
+# Active status is set through other processes (certification completion, etc.)
 
 # Set user as inactive (hvilende)
-status = client.userstatus.set_inactive(user_id=123, ordning_id=1)
+status = client.userstatus.set_inactive(
+    user_id=123,
+    appname='afr',  # Use appname code: 'afr', 'krd', 'gos', etc.
+    status_date='2024-01-01',
+    comment='Temporary leave',
+    status_set_by_id=1  # ID of user making the change
+)
 
 # Withdraw user (utmeldt)
-status = client.userstatus.set_withdrawn(user_id=123, ordning_id=1)
+status = client.userstatus.set_withdrawn(
+    user_id=123,
+    appname='afr',  # Short code, NOT a URL
+    status_date='2024-01-01',
+    comment='User withdrawn',
+    status_set_by_id=1
+)
 
 # Get latest status
 latest = client.userstatus.get_latest(persnr='12345678901')
