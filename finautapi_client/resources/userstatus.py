@@ -57,11 +57,12 @@ class UserStatusResource:
 
         Args:
             status_data: Dictionary containing status information:
-                - ordning: Authorization scheme URL (required)
+                - appname: Authorization scheme code (required, max 10 chars, e.g., "afr", "krd")
                 - user: User URL (required)
-                - status: Status type (required) - 'aktiv', 'hvilende', 'utmeldt'
+                - status: Status type (required) - only 'hvilende' or 'utmeldt' allowed
+                - reason: Reason for status change (required)
                 - status_date: Date of status change (YYYY-MM-DD)
-                - status_set_by: User who set the status (optional)
+                - status_set_by: User who set the status (required)
                 - comment: Status comment (optional)
 
         Returns:
@@ -69,68 +70,50 @@ class UserStatusResource:
 
         Example:
             status_data = {
-                "ordning": "https://api.norsktest.no/finautapi/v1/ordninger/1/",
+                "appname": "afr",  # Short code, NOT a URL
                 "user": "https://api.norsktest.no/finautapi/v1/user/123/",
-                "status": "aktiv",
+                "status": "hvilende",
+                "reason": "hvilende",
+                "status_set_by": "https://api.norsktest.no/finautapi/v1/user/1/",
                 "status_date": "2024-01-01",
-                "comment": "Activated for AFR certification"
+                "comment": "Temporary leave"
             }
         """
         return self.client.post(f"{self.endpoint}/", json=status_data)
 
-    def set_active(
-        self,
-        user_id: int,
-        ordning_id: int,
-        status_date: Optional[str] = None,
-        comment: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Set a user's status to active in an authorization scheme.
-
-        Args:
-            user_id: User ID
-            ordning_id: Authorization scheme ID
-            status_date: Date of status change (YYYY-MM-DD)
-            comment: Optional comment
-
-        Returns:
-            Created status details
-        """
-        status_data = {
-            "ordning": f"{self.client.base_url}ordninger/{ordning_id}/",
-            "user": f"{self.client.base_url}user/{user_id}/",
-            "status": "aktiv",
-            "status_date": status_date or date.today().isoformat(),
-        }
-        if comment:
-            status_data["comment"] = comment
-
-        return self.create(status_data)
-
     def set_inactive(
         self,
         user_id: int,
-        ordning_id: int,
+        appname: str,
         status_date: Optional[str] = None,
-        comment: Optional[str] = None
+        comment: Optional[str] = None,
+        status_set_by_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Set a user's status to inactive (hvilende) in an authorization scheme.
 
+        Note: The API only allows creating 'hvilende' or 'utmeldt' statuses.
+        Setting to 'aktiv' is not supported through this endpoint.
+
         Args:
             user_id: User ID
-            ordning_id: Authorization scheme ID
+            appname: Authorization scheme code (e.g., "afr", "krd", "gos")
             status_date: Date of status change (YYYY-MM-DD)
             comment: Optional comment
+            status_set_by_id: ID of the user setting the status (defaults to user_id)
 
         Returns:
             Created status details
         """
+        # Use status_set_by_id if provided, otherwise use the user_id
+        set_by_id = status_set_by_id or user_id
+        
         status_data = {
-            "ordning": f"{self.client.base_url}ordninger/{ordning_id}/",
+            "appname": appname,  # Short code like "afr", "krd", not a URL
             "user": f"{self.client.base_url}user/{user_id}/",
             "status": "hvilende",
+            "reason": "hvilende",  # Required by API
+            "status_set_by": f"{self.client.base_url}user/{set_by_id}/",
             "status_date": status_date or date.today().isoformat(),
         }
         if comment:
@@ -141,26 +124,33 @@ class UserStatusResource:
     def set_withdrawn(
         self,
         user_id: int,
-        ordning_id: int,
+        appname: str,
         status_date: Optional[str] = None,
-        comment: Optional[str] = None
+        comment: Optional[str] = None,
+        status_set_by_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Set a user's status to withdrawn (utmeldt) from an authorization scheme.
 
         Args:
             user_id: User ID
-            ordning_id: Authorization scheme ID
+            appname: Authorization scheme code (e.g., "afr", "krd", "gos")
             status_date: Date of status change (YYYY-MM-DD)
             comment: Optional comment
+            status_set_by_id: ID of the user setting the status (defaults to user_id)
 
         Returns:
             Created status details
         """
+        # Use status_set_by_id if provided, otherwise use the user_id
+        set_by_id = status_set_by_id or user_id
+        
         status_data = {
-            "ordning": f"{self.client.base_url}ordninger/{ordning_id}/",
+            "appname": appname,  # Short code like "afr", "krd", not a URL
             "user": f"{self.client.base_url}user/{user_id}/",
             "status": "utmeldt",
+            "reason": "utmeldt",  # Required by API
+            "status_set_by": f"{self.client.base_url}user/{set_by_id}/",
             "status_date": status_date or date.today().isoformat(),
         }
         if comment:
