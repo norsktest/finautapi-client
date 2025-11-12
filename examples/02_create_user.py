@@ -47,11 +47,13 @@ def main():
 
     # Based on existing users, the field is 'work_for' with company and department
     user_data = {
-        "persnr": "55110094247",  # (valid) Norwegian SSN or D-number (11 digits)
+        # "persnr": "55110094247",  # (valid) Norwegian SSN or D-number (11 digits)
+        "persnr": "12345678901",  # (invalid) Norwegian SSN or D-number (11 digits)
         "first_name": "Test",
         "last_name": "Testesen",
         "email": "test.bruker@example.com",
-        "mobile": "12345678",
+        # "mobile": "+47 12345678",  # invalid phone number
+        "mobile": "12345678",  # valid phone number
         "employee_alias": "EMP001",
         # work_for contains the employment info
         "work_for": {
@@ -61,6 +63,7 @@ def main():
         # User roles as URLs
         "userroles": [
             f"{client.base_url}userrole/afr_ka/"  # AFR Kandidat role
+            # "userrole/1/"  # incorrect format for testing validation
         ]
     }
 
