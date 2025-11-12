@@ -63,7 +63,7 @@ class FinAutAPIClient:
         self.debug = debug
 
         # Initialize OAuth2 handler
-        self.auth = OAuth2Handler(client_id, client_secret, self.token_url)
+        self.auth = OAuth2Handler(client_id, client_secret, self.token_url, debug)
 
         # Initialize resource handlers
         self.users = UserResource(self)

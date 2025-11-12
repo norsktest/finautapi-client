@@ -10,7 +10,7 @@ from .exceptions import AuthenticationError
 class OAuth2Handler:
     """Handles OAuth2 Client Credentials flow for FinAut API."""
 
-    def __init__(self, client_id: str, client_secret: str, token_url: str):
+    def __init__(self, client_id: str, client_secret: str, token_url: str, debug: bool = False):
         """
         Initialize OAuth2 handler.
 
@@ -25,6 +25,7 @@ class OAuth2Handler:
         self._access_token: Optional[str] = None
         self._token_expires: Optional[datetime] = None
         self._refresh_buffer = 60  # Refresh token 60 seconds before expiry
+        self.debug = debug
 
     @property
     def access_token(self) -> str:
@@ -38,7 +39,13 @@ class OAuth2Handler:
             AuthenticationError: If token refresh fails
         """
         if self._needs_refresh():
+            if self.debug:
+                print("[DEBUG] Access token expired or missing, refreshing token...")
             self._refresh_token()
+            if self.debug:
+                print("[DEBUG] Access token refreshed successfully.")
+        if self.debug:
+            print(f"[DEBUG] Current access token: {self._access_token}")
         return self._access_token
 
     def _needs_refresh(self) -> bool:
@@ -62,6 +69,7 @@ class OAuth2Handler:
             'client_secret': self.client_secret,
             'scope': 'read write'
         }
+        print("[DEBUG] Requesting new access token from token endpoint...")
 
         try:
             response = requests.post(self.token_url, data=data, timeout=30)
