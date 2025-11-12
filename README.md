@@ -245,7 +245,9 @@ The `examples/` directory contains complete, runnable examples:
 2. Create users<sup>(*)</sup>:
    1. **02_create_user.py** - Creating and updating users
    2. **02b_create_user_in_franchise.py** - Creating users in franchise companies
-3. **03_list_and_search_users.py** - Listing and searching users
+3. List and search:
+   1. **03_list_and_search_users.py** - Listing and searching users
+   2. **03b_list_companies.py** - Listing companies and departments
 4. **04_manage_user_status.py** - Managing user statuses in authorization schemes
 5. **05_handle_exam_results.py** - Working with exam and competency results
 6. **06_webhook_receiver.py** - Flask-based webhook receiver
