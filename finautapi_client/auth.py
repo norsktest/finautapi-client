@@ -73,9 +73,13 @@ class OAuth2Handler:
 
         try:
             response = requests.post(self.token_url, data=data, timeout=30)
+            print("/" * 60)
+            if self.debug:
+                print("POST", self.token_url, data)
             response.raise_for_status()
 
             token_data = response.json()
+            print(f"Token data {token_data}")
             self._access_token = token_data['access_token']
 
             # Calculate token expiry time

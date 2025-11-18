@@ -86,6 +86,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+myenv
 env/
 venv/
 ENV/
@@ -112,3 +113,6 @@ test_credentials.py
 test_config.py
 .env.test
 .env.local
+
+#
+Claude.md
