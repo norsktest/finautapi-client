@@ -56,7 +56,26 @@ def main():
             print(f"Result ID: {res.get('id')}")
             print(f"User ID: {res.get('user').get('id')}")
             print(f"User: first_name: {res.get('user').get('first_name')}, last_name: {res.get('user').get('last_name')}")
-                
+            
+        print("=" * 60)
+        print("Checking rate limit status...")
+
+        # Get rate limit info from response headers
+        response = client.request('GET', 'competency_result/', params={'page': 1})
+        for k, v in response.headers.items():
+            print(k, v)
+        #print(response.headers)
+        rate_limit_limit = response.headers.get('X-RateLimit-Limit')
+        rate_limit_remaining = response.headers.get('X-RateLimit-Remaining')
+        rate_limit_reset = response.headers.get('X-RateLimit-Reset')
+
+        if rate_limit_limit:
+            print(f"Rate Limit - Total: {rate_limit_limit}")
+            print(f"Rate Limit - Remaining: {rate_limit_remaining}")
+            print(f"Rate Limit - Reset: {rate_limit_reset}")
+        else:
+            print("Rate limit headers not available")
+
 
     except FinAutAPIException as e:
         print(f"\n✗ API error: {e}")

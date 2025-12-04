@@ -41,9 +41,14 @@ def main():
         print("=" * 60) 
         
         competency_result = client.competency_results.create({
-            'goal': goal, 
+            'goal': f"{client.host}/finautapi/{client.API_VERSION}/goals/1/", 
             'user': 'test_encrypted_user_id',
             'finished': '2025-11-19',
+            'courseinfo': 'Random Course',
+            'content_responsible': 'Test Department',
+            'reward_type': f"{client.host}/finautapi/{client.API_VERSION}/reward_types/1",
+            'external_system': 'Test LMS', 
+            'external_id': 'test_ext_id_123',
             'value': value
         })
         

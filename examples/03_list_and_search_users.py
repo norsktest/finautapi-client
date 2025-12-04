@@ -77,8 +77,7 @@ def main():
         if all_users.get('results'):
             first_user_url = all_users['results'][0]['id']
             first_user_id = client.extract_id_from_url(first_user_url)
-            print(f"
-4. Getting specific user by ID ({first_user_id})...")
+            print(f"4. Getting specific user by ID ({first_user_id})...")
             specific_user = client.users.get(first_user_id)
 
             print(f"   User details:")
