@@ -91,6 +91,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+myenv/
 
 # IDE
 .vscode/
@@ -111,4 +112,4 @@ Desktop.ini
 test_credentials.py
 test_config.py
 .env.test
-.env.local
+.env.local 
