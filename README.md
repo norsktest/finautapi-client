@@ -316,7 +316,9 @@ mypy finautapi_client
 
 ## API Documentation
 
-- [FinAut API Documentation](https://api.norsktest.no/finautapi/v1/docs/)
+- [Browsable API](https://api.norsktest.no/finautapi/v1/) - endpoint reference, sign-in required
+- [OpenAPI schema](https://api.norsktest.no/finautapi/v1/schema/) - the same endpoints, machine-readable
+- [Getting started](https://api.norsktest.no/finautapi/v1/instructions/) - client-id, secret and the token flow
 - [Developer Guide](https://norsktest.gitlab.io/finautapi)
 
 ## License
