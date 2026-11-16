@@ -176,27 +176,39 @@ results = client.results.list(
 # Get specific result
 result = client.results.get(result_id=999)
 
-# Get user's results
+# One user's results (persnr or employee_alias), all pages
 user_results = client.results.get_user_results(persnr='12345678901')
 
-# Get recent results (last 30 days)
+# Everyone's results finished in the last 30 days, all pages
 recent = client.results.get_recent_results(days=30)
+
+# /results/ needs persnr or from_date; without either the list is empty
 ```
 
 ### Competency Results
 ```python
-# List competency results
-results = client.competency_results.list(encrypted_userid='abc123')
+# List competency results (filters: encoded_userid, persnr,
+# employee_alias, goal (id or code), from_date)
+results = client.competency_results.list(encoded_userid='N3F2A...', from_date='2026-01-01')
 
-# Record completion
+# Record a completed course. The user is the encrypted user id your LMS got
+# from FinAut-login; goal and reward_type take ids (from 'goals/' and
+# 'reward_types/') or full URLs. All fields are required.
 result = client.competency_results.record_completion(
-    encrypted_userid='abc123',
-    goal_id=456,
-    passed_date='2024-01-15',
-    external_system='LMS',
-    external_id='COURSE-789'
+    'N3F2A...',
+    goal=12,
+    reward_type=3,
+    finished='2026-11-16',
+    value=2,
+    courseinfo='Etikk og god skikk 2026',
+    content_responsible='Kari Nordmann',
+    external_system='MyLMS',
+    external_id='completion-4711',
 )
 ```
+
+Posting the same `external_id` twice creates two results; the API does not
+de-duplicate. A course that covers several goals is posted once per goal.
 
 ### Employment Records
 ```python
@@ -231,11 +243,44 @@ except FinAutAPIException as e:
     print(f"API error: {e}")
 ```
 
+## Course completions from an LMS
+
+A course provider registers completed courses in FinAut in two steps:
+
+1. **FinAut-login, once per user.** Send the user to
+   `https://afr.norsktest.no/get-user-id/<client-id>/<your-user-ref>/?next=<return-url>`.
+   They log in to FinAut, FinAut POSTs their encrypted user id to your
+   callback URL, and sends them back to `next`.
+2. **One API call per completed course and goal:**
+   `client.competency_results.record_completion(...)` (see Competency Results
+   above and `examples/07_record_competency_result.py`).
+
+The full walkthrough, with the callback format and what to ask Norsk Test
+for, is in the [Developer Guide](https://norsktest.gitlab.io/finautapi/guides/finaut-login/)
+under "FinAut-login and course completions".
+
 ## Webhooks
 
-The FinAut API can send webhook notifications for events. See `examples/06_webhook_receiver.py` for a complete Flask-based webhook receiver example.
+FinAut can POST a record to your URL when an exam result, a competency result
+or a user status is saved for one of your users. Norsk Test sets the webhooks
+up for you.
 
-**Important:** The FinAut API currently does NOT implement webhook signature verification. This is a known security issue documented in the API's TODO.md.
+Ask for a signing secret on your webhook. Every delivery then carries
+`X-FinAut-Signature: sha256=<hex HMAC-SHA256 of the raw body>`; check it on the
+raw bytes before parsing, and reject deliveries without it:
+
+```python
+from finautapi_client import verify_signature
+
+if not verify_signature(raw_body, headers.get('X-FinAut-Signature'), secret):
+    return 401
+```
+
+Each delivery also has an `X-Correlation-Id`; quote it when you contact Norsk
+Test. The same record can arrive again (when it changes, or when Norsk Test
+resends), so store records keyed on their own `id`. Answer with a 2xx within
+10 seconds. `examples/06_webhook_receiver.py` is a complete receiver using
+only the standard library.
 
 ## Examples
 
@@ -249,8 +294,9 @@ The `examples/` directory contains complete, runnable examples:
    1. **03_list_and_search_users.py** - Listing and searching users
    2. **03b_list_companies.py** - Listing companies and departments
 4. **04_manage_user_status.py** - Managing user statuses in authorization schemes
-5. **05_handle_exam_results.py** - Working with exam and competency results
-6. **06_webhook_receiver.py** - Flask-based webhook receiver
+5. **05_handle_exam_results.py** - Reading exam results and competency results
+6. **06_webhook_receiver.py** - Webhook receiver that checks signatures (standard library only)
+7. **07_record_competency_result.py** - Recording a course completion from an LMS (dry run unless `--send`)
 
 **<sup>(*)</sup> Note:** Running user creation examples will create real users in the FinAut test environment. Use caution and clean up test data as needed. finautapli-client/persnr.py contains helper functions to generate valid Norwegian personal numbers for testing.
 
@@ -319,7 +365,7 @@ mypy finautapi_client
 - [Browsable API](https://api.norsktest.no/finautapi/v1/) - endpoint reference, sign-in required
 - [OpenAPI schema](https://api.norsktest.no/finautapi/v1/schema/) - the same endpoints, machine-readable
 - [Getting started](https://api.norsktest.no/finautapi/v1/instructions/) - client-id, secret and the token flow
-- [Developer Guide](https://norsktest.gitlab.io/finautapi)
+- [Developer Guide](https://norsktest.gitlab.io/finautapi/)
 
 ## License
 
@@ -333,6 +379,18 @@ For issues, questions, or contributions:
 
 ## Changelog
 
+### Unreleased
+- `competency_results.record_completion()` / `create()` send the fields the
+  API requires (`goal` and `reward_type` as links, `finished`, `value`, ...);
+  the old `goal_id`/`passed_date` signature never worked against the server
+- `competency_results.list()` filters with `encoded_userid` (the old
+  `encrypted_userid` name was ignored by the server) and `goal`, `from_date`
+- `client.get_all()` follows pages; `results.get_user_results()` and
+  `get_recent_results()` use it (`user_id` argument removed: it never matched)
+- `verify_signature()` for webhook receivers
+- Debug mode no longer prints the access token
+- Examples 05, 06 and 07 are runnable
+
 ### Version 0.1.0 (2025-11-09)
 - Initial release
 - OAuth2 authentication with automatic token refresh
@@ -340,20 +398,6 @@ For issues, questions, or contributions:
 - Comprehensive error handling
 - Example scripts
 - Basic test coverage
-
-## Security Note
-
-⚠️ **Important:** The FinAut API server currently has several security vulnerabilities documented in its TODO.md:
-- Webhook authentication is not implemented
-- Input validation is incomplete
-- Debug statements may expose sensitive data
-
-Please ensure you:
-1. Use HTTPS for all API communications
-2. Store credentials securely (never in code)
-3. Implement your own webhook verification
-4. Validate all data from the API
-5. Keep the client library updated
 
 ## Authors
 
