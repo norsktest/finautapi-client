@@ -45,7 +45,8 @@ class OAuth2Handler:
             if self.debug:
                 print("[DEBUG] Access token refreshed successfully.")
         if self.debug:
-            print(f"[DEBUG] Current access token: {self._access_token}")
+            # never the whole token: it is a bearer credential
+            print(f"[DEBUG] Current access token: ...{(self._access_token or '')[-4:]}")
         return self._access_token
 
     def _needs_refresh(self) -> bool:

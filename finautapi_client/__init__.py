@@ -17,6 +17,7 @@ from .exceptions import (
     ServerError,
     RateLimitError,
 )
+from .webhooks import verify_signature
 
 __all__ = [
     "FinAutAPIClient",
@@ -26,4 +27,5 @@ __all__ = [
     "NotFoundError",
     "ServerError",
     "RateLimitError",
+    "verify_signature",
 ]

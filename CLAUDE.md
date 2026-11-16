@@ -92,7 +92,7 @@ Located in `examples/` directory:
 - `03b_list_companies.py` - Companies and departments
 - `04_manage_user_status.py` - User status management (active/inactive/withdrawn)
 - `05_handle_exam_results.py` - Results handling
-- `06_webhook_receiver.py` - Flask webhook receiver example
+- `06_webhook_receiver.py` - webhook receiver that checks signatures (standard library only)
 
 Run with: `cd examples && python 01_basic_authentication.py`
 
@@ -137,7 +137,7 @@ Run with: `cd examples && python 01_basic_authentication.py`
 
 1. **URL vs Code for appnames**: Some methods (like `userstatus.set_inactive()`) expect short codes (`'afr'`, `'krd'`, etc.), NOT full URLs
 2. **User creation with franchise**: Department and company are provided as URLs in work_for object
-3. **No webhook signature verification**: The FinAut API doesn't verify webhook signatures (documented security gap)
+3. **Webhook signatures**: deliveries carry `X-FinAut-Signature` (sha256 HMAC of the raw body) when Norsk Test has set a secret on the webhook; `finautapi_client.verify_signature()` checks it
 4. **Inactive vs Withdrawn**: Two separate status setters with different semantics; 'aktiv' status cannot be set via API
 5. **Token refresh delay**: If a token expires between requests, a 401 will be raised; the client will refresh on retry
 
@@ -150,6 +150,7 @@ finautapi_client/
 ├── auth.py                        # OAuth2 and Basic auth handlers
 ├── exceptions.py                  # Exception classes
 ├── persnr.py                      # Helper for Norwegian personal numbers
+├── webhooks.py                    # verify_signature() for webhook receivers
 └── resources/
     ├── __init__.py
     ├── users.py                   # UserResource
@@ -163,6 +164,9 @@ finautapi_client/
 tests/
 ├── test_client.py                 # Main client tests
 ├── test_auth.py                   # Auth handler tests
+├── test_competency_result.py      # competency_results vs the server's contract
+├── test_results.py                # get_all() paging and result helpers
+├── test_webhooks.py               # signature verification
 └── __init__.py
 
 examples/
@@ -173,12 +177,13 @@ examples/
 ├── 03b_list_companies.py
 ├── 04_manage_user_status.py
 ├── 05_handle_exam_results.py
-└── 06_webhook_receiver.py
+├── 06_webhook_receiver.py
+└── 07_record_competency_result.py
 ```
 
 ## Security Notes
 
 - Store credentials in environment variables (`FINAUT_CLIENT_ID`, `FINAUT_CLIENT_SECRET`, `FINAUT_API_HOST`), never in code
 - Always use HTTPS for API communications
-- Webhook signature verification is not implemented on the server (implement client-side if needed)
-- The FinAut API has documented security vulnerabilities (see README.md)
+- Verify webhook signatures with `verify_signature()` on the raw body before parsing
+- Debug mode prints request parameters (which can include persnr) but only the last 4 characters of the access token

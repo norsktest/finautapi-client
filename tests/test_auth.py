@@ -228,3 +228,13 @@ class TestBasicAuthHandler:
         expected = base64.b64encode(b'test_user:test_pass').decode()
 
         assert headers == {'Authorization': f'Basic {expected}'}
+
+def test_debug_output_does_not_show_the_token(capsys):
+    """Debug mode must not print the access token (a bearer credential)."""
+    from datetime import datetime, timedelta
+    from finautapi_client.auth import OAuth2Handler
+    handler = OAuth2Handler('id', 'secret', 'https://x/o/token/', debug=True)
+    handler._access_token = 'S3cr3tT0k3nValue1234567890'
+    handler._token_expires = datetime.now() + timedelta(hours=1)
+    assert handler.access_token == 'S3cr3tT0k3nValue1234567890'
+    assert 'S3cr3tT0k3nValue1234567890' not in capsys.readouterr().out

@@ -1,296 +1,91 @@
-#
-#  This example is not ready yet.
-#
+#!/usr/bin/env python
+"""
+Example: Webhook receiver
 
-# #!/usr/bin/env python
-# """
-# Example: Webhook Receiver
+FinAut POSTs a JSON record to your webhook URL when an exam result, a
+competency result or a user status is saved for one of your users. This
+receiver checks the signature, then hands the record on.
 
-# This example demonstrates how to receive and process webhook notifications
-# from the FinAut API. This would typically run as a web service in your
-# infrastructure to receive real-time updates.
+Ask Norsk Test to set a signing secret on your webhook and send it to you
+over a separate channel. Every delivery then carries:
 
-# NOTE: This example uses Flask for simplicity, but you can use any web framework.
-# """
+    X-FinAut-Signature: sha256=<hex HMAC-SHA256 of the raw body>
+    X-Correlation-Id:   <unique id of this delivery>
 
-# import os
-# import json
-# import hmac
-# import hashlib
-# from datetime import datetime
+Run it (standard library only; behind HTTPS in production):
 
-# # For this example, we'll use Flask (install with: pip install flask)
-# try:
-#     from flask import Flask, request, jsonify
-# except ImportError:
-#     print("This example requires Flask. Install it with: pip install flask")
-#     exit(1)
+    FINAUT_WEBHOOK_SECRET=... python 06_webhook_receiver.py
 
+Answer 2xx quickly. FinAut waits 10 seconds and records the status code;
+do slow work after answering.
+"""
 
-# # Create Flask application
-# app = Flask(__name__)
+import json
+import os
+import sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 
-# # Configuration (use environment variables in production)
-# WEBHOOK_SECRET = os.environ.get('WEBHOOK_SECRET', 'your_webhook_secret_here')
-# DEBUG_MODE = os.environ.get('DEBUG', 'true').lower() == 'true'
+# Add parent directory to path for development (remove in production)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from finautapi_client.webhooks import (
+    CORRELATION_HEADER,
+    SIGNATURE_HEADER,
+    verify_signature,
+)
 
-# def verify_webhook_signature(payload, signature, secret):
-#     """
-#     Verify webhook signature using HMAC-SHA256.
-
-#     NOTE: The FinAut API currently does NOT implement webhook signatures,
-#     but this is included as a best practice for when it's added.
-
-#     Args:
-#         payload: Raw request body
-#         signature: Signature from X-Hub-Signature header
-#         secret: Webhook secret key
-
-#     Returns:
-#         True if signature is valid, False otherwise
-#     """
-#     if not signature:
-#         # No signature provided (current FinAut behavior)
-#         print("⚠️  WARNING: No webhook signature provided (not implemented in FinAut yet)")
-#         return True  # Allow for now, but log warning
-
-#     # Expected format: sha256=<signature>
-#     if not signature.startswith('sha256='):
-#         return False
-
-#     expected = 'sha256=' + hmac.new(
-#         secret.encode(),
-#         payload,
-#         hashlib.sha256
-#     ).hexdigest()
-
-#     return hmac.compare_digest(expected, signature)
+SECRET = os.environ.get('FINAUT_WEBHOOK_SECRET', '')
+PORT = int(os.environ.get('PORT', '5000'))
+records = {}  # (webhook path, record id) -> record; use a database in production
 
 
-# @app.route('/webhook/result', methods=['POST'])
-# def handle_result_webhook():
-#     """Handle exam result webhook notifications."""
+def handle_record(path, record, correlation_id):
+    """Your integration goes here.
 
-#     # Get correlation ID for tracking
-#     correlation_id = request.headers.get('X-Correlation-Id', 'unknown')
-
-#     if DEBUG_MODE:
-#         print(f"\n{'='*60}")
-#         print(f"Received Result Webhook - {datetime.now()}")
-#         print(f"Correlation ID: {correlation_id}")
-#         print(f"{'='*60}")
-
-#     # Verify signature (when implemented)
-#     signature = request.headers.get('X-Hub-Signature')
-#     if not verify_webhook_signature(request.data, signature, WEBHOOK_SECRET):
-#         print(f"❌ Invalid webhook signature for correlation ID: {correlation_id}")
-#         return jsonify({'error': 'Invalid signature'}), 401
-
-#     # Parse webhook data
-#     try:
-#         data = request.json
-#     except Exception as e:
-#         print(f"❌ Failed to parse webhook data: {e}")
-#         return jsonify({'error': 'Invalid JSON'}), 400
-
-#     # Process the result
-#     process_result_update(data, correlation_id)
-
-#     # Return success response
-#     return jsonify({
-#         'status': 'success',
-#         'correlation_id': correlation_id,
-#         'processed_at': datetime.now().isoformat()
-#     }), 200
+    Store it as an upsert keyed on the record's own id: the same record
+    arrives again when it is updated, and when Norsk Test resends
+    deliveries (with a new correlation id).
+    """
+    records[(path, record.get('id'))] = record
+    print(f'{correlation_id}: {json.dumps(record, ensure_ascii=False)[:200]}')
 
 
-# @app.route('/webhook/status', methods=['POST'])
-# def handle_status_webhook():
-#     """Handle user status change webhook notifications."""
+class WebhookHandler(BaseHTTPRequestHandler):
+    """Verify, de-duplicate and process one delivery."""
 
-#     correlation_id = request.headers.get('X-Correlation-Id', 'unknown')
+    def do_POST(self):  # noqa: N802 (http.server's naming)
+        body = self.rfile.read(int(self.headers.get('Content-Length', 0)))
+        correlation_id = self.headers.get(CORRELATION_HEADER, '')
 
-#     if DEBUG_MODE:
-#         print(f"\n{'='*60}")
-#         print(f"Received Status Webhook - {datetime.now()}")
-#         print(f"Correlation ID: {correlation_id}")
-#         print(f"{'='*60}")
+        # 1. Check the signature on the raw bytes, before parsing them.
+        if not verify_signature(body, self.headers.get(SIGNATURE_HEADER), SECRET):
+            return self._reply(401, {'error': 'invalid signature'})
 
-#     # Verify signature (when implemented)
-#     signature = request.headers.get('X-Hub-Signature')
-#     if not verify_webhook_signature(request.data, signature, WEBHOOK_SECRET):
-#         print(f"❌ Invalid webhook signature for correlation ID: {correlation_id}")
-#         return jsonify({'error': 'Invalid signature'}), 401
+        try:
+            record = json.loads(body)
+        except ValueError:
+            return self._reply(400, {'error': 'invalid JSON'})
 
-#     # Parse webhook data
-#     try:
-#         data = request.json
-#     except Exception as e:
-#         print(f"❌ Failed to parse webhook data: {e}")
-#         return jsonify({'error': 'Invalid JSON'}), 400
+        handle_record(self.path, record, correlation_id)
+        return self._reply(200, {'status': 'ok'})
 
-#     # Process the status change
-#     process_status_change(data, correlation_id)
-
-#     return jsonify({
-#         'status': 'success',
-#         'correlation_id': correlation_id,
-#         'processed_at': datetime.now().isoformat()
-#     }), 200
+    def _reply(self, status, payload):
+        data = json.dumps(payload).encode('utf-8')
+        self.send_response(status)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
 
-# def process_result_update(data, correlation_id):
-#     """
-#     Process exam result update from webhook.
-
-#     Args:
-#         data: Webhook payload
-#         correlation_id: Correlation ID for tracking
-#     """
-#     print("\n📊 Processing Exam Result Update")
-#     print(f"   Correlation ID: {correlation_id}")
-
-#     # Extract key information
-#     user_id = data.get('user')
-#     exam_name = data.get('exam_name', 'Unknown')
-#     score = data.get('score')
-#     passed = data.get('passed')
-#     exam_date = data.get('exam_date')
-
-#     print(f"   User: {user_id}")
-#     print(f"   Exam: {exam_name}")
-#     print(f"   Score: {score}")
-#     print(f"   Passed: {passed}")
-#     print(f"   Date: {exam_date}")
-
-#     # TODO: Your business logic here
-#     # Examples:
-#     # - Update your LMS with the exam result
-#     # - Send notification email to user
-#     # - Update internal reporting database
-#     # - Trigger certificate generation if passed
-
-#     if passed:
-#         print("   ✅ User passed the exam!")
-#         # trigger_certificate_generation(user_id, exam_name)
-#     else:
-#         print("   ❌ User did not pass the exam")
-#         # schedule_retraining(user_id, exam_name)
-
-#     # Log the webhook for audit trail
-#     log_webhook_received('result', correlation_id, data)
+def main():
+    """Serve until interrupted."""
+    if not SECRET:
+        sys.exit('Set FINAUT_WEBHOOK_SECRET to the secret Norsk Test gave you.')
+    print(f'Listening on http://localhost:{PORT}/ (Ctrl+C to stop)')
+    HTTPServer(('', PORT), WebhookHandler).serve_forever()
 
 
-# def process_status_change(data, correlation_id):
-#     """
-#     Process user status change from webhook.
-
-#     Args:
-#         data: Webhook payload
-#         correlation_id: Correlation ID for tracking
-#     """
-#     print("\n🔄 Processing Status Change")
-#     print(f"   Correlation ID: {correlation_id}")
-
-#     # Extract key information
-#     user = data.get('user')
-#     ordning = data.get('ordning')
-#     status = data.get('status')
-#     status_date = data.get('status_date')
-#     comment = data.get('comment', '')
-
-#     print(f"   User: {user}")
-#     print(f"   Ordning: {ordning}")
-#     print(f"   New Status: {status}")
-#     print(f"   Effective Date: {status_date}")
-#     print(f"   Comment: {comment}")
-
-#     # TODO: Your business logic here
-#     # Examples:
-#     # - Update user access in your system
-#     # - Notify HR system of status change
-#     # - Update billing if user is withdrawn
-#     # - Send notification to user's manager
-
-#     if status == 'aktiv':
-#         print("   ✅ User activated in authorization scheme")
-#         # enable_user_access(user, ordning)
-#     elif status == 'hvilende':
-#         print("   ⏸️  User set to inactive/resting")
-#         # suspend_user_access(user, ordning)
-#     elif status == 'utmeldt':
-#         print("   ⛔ User withdrawn from scheme")
-#         # revoke_user_access(user, ordning)
-
-#     # Log the webhook for audit trail
-#     log_webhook_received('status', correlation_id, data)
-
-
-# def log_webhook_received(webhook_type, correlation_id, data):
-#     """
-#     Log webhook receipt for audit trail.
-
-#     In production, this would write to a database or logging service.
-#     """
-#     log_entry = {
-#         'timestamp': datetime.now().isoformat(),
-#         'type': webhook_type,
-#         'correlation_id': correlation_id,
-#         'data': data
-#     }
-
-#     if DEBUG_MODE:
-#         print(f"\n📝 Webhook logged:")
-#         print(json.dumps(log_entry, indent=2, default=str))
-
-#     # TODO: In production, save to database
-#     # save_to_database(log_entry)
-
-
-# @app.route('/health', methods=['GET'])
-# def health_check():
-#     """Health check endpoint for monitoring."""
-#     return jsonify({
-#         'status': 'healthy',
-#         'service': 'FinAut Webhook Receiver',
-#         'timestamp': datetime.now().isoformat()
-#     }), 200
-
-
-# @app.route('/', methods=['GET'])
-# def index():
-#     """Root endpoint with information."""
-#     return jsonify({
-#         'service': 'FinAut Webhook Receiver Example',
-#         'endpoints': {
-#             '/webhook/result': 'Receive exam result webhooks',
-#             '/webhook/status': 'Receive user status change webhooks',
-#             '/health': 'Health check endpoint'
-#         },
-#         'note': 'This is an example webhook receiver. Configure URLs in FinAut admin.'
-#     }), 200
-
-
-# def main():
-#     """Run the webhook receiver service."""
-#     print("=" * 60)
-#     print("FinAut Webhook Receiver Example")
-#     print("=" * 60)
-#     print(f"\n🚀 Starting webhook receiver on http://localhost:5000")
-#     print("\nEndpoints:")
-#     print("  POST http://localhost:5000/webhook/result - For exam results")
-#     print("  POST http://localhost:5000/webhook/status - For status changes")
-#     print("  GET  http://localhost:5000/health - Health check")
-#     print("\n⚠️  IMPORTANT: The FinAut API currently does NOT implement")
-#     print("    webhook signatures. This example includes signature")
-#     print("    verification as a best practice for when it's added.")
-#     print("\nPress Ctrl+C to stop the server")
-#     print("-" * 60)
-
-#     # Run Flask app
-#     app.run(host='0.0.0.0', port=5000, debug=DEBUG_MODE)
-
-
-# if __name__ == "__main__":
-#     main()
+if __name__ == '__main__':
+    main()

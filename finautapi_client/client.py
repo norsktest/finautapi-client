@@ -1,6 +1,6 @@
 """Main FinAut API client implementation."""
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from urllib.parse import urljoin
 import requests
 from json import dumps
@@ -236,6 +236,24 @@ class FinAutAPIClient:
             if self.debug:
                 print(f"[DEBUG] Connection test failed: {e}")
             return False
+
+    def get_all(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> List[Any]:
+        """GET every item of a list endpoint, following pages.
+
+        api.norsktest.no paginates (``{"count", "next", "results"}``, 100
+        per page); other hosts return a plain list. Both give a list here.
+        """
+        params = dict(params or {})
+        items: List[Any] = []
+        page = 1
+        while True:
+            response = self.get(endpoint, params={**params, 'page': page} if page > 1 else params)
+            if isinstance(response, list):
+                return items + response
+            items.extend(response.get('results', []))
+            if not response.get('next'):
+                return items
+            page += 1
 
     @staticmethod
     def extract_id_from_url(url: str) -> int:

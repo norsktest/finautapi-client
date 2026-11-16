@@ -1,7 +1,7 @@
 """Result resource for FinAut API client."""
 
 from typing import Dict, Any, List, Optional
-from datetime import date
+from datetime import date, timedelta
 
 
 class ResultResource:
@@ -20,7 +20,10 @@ class ResultResource:
         page: Optional[int] = None
     ) -> Dict[str, Any]:
         """
-        List results with optional filters.
+        List monitored exam results for your users (one page).
+
+        The API needs persnr or from_date; without either it returns an
+        empty list. employee_alias only narrows a from_date query.
 
         Args:
             from_date: Filter results from this date (YYYY-MM-DD)
@@ -57,53 +60,35 @@ class ResultResource:
 
     def get_user_results(
         self,
-        user_id: Optional[int] = None,
         persnr: Optional[str] = None,
-        employee_alias: Optional[str] = None
+        employee_alias: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Get all results for a specific user.
+        Get all monitored exam results for one of your users.
 
         Args:
-            user_id: User ID
-            persnr: Norwegian SSN
-            employee_alias: Employee alias
+            persnr: Norwegian national identity number
+            employee_alias: Your company's identifier for the user
 
-        Note: Provide at least one identifier.
+        The API filters on persnr directly. It only honours employee_alias
+        together with from_date, so that lookup asks for everything since
+        2000-01-01.
 
         Returns:
             List of result dictionaries
         """
-        if not any([user_id, persnr, employee_alias]):
-            raise ValueError("Must provide at least one user identifier")
-
-        # Get all results with filter
-        all_results = []
-        page = 1
-        while True:
-            response = self.list(
-                persnr=persnr,
-                employee_alias=employee_alias,
-                page=page
-            )
-            results = response.get('results', [])
-
-            # Filter by user_id if provided
-            if user_id:
-                user_url = f"{self.client.base_url}user/{user_id}/"
-                results = [r for r in results if r.get('user') == user_url]
-
-            all_results.extend(results)
-
-            if not response.get('next'):
-                break
-            page += 1
-
-        return all_results
+        if persnr:
+            params = {'persnr': persnr}
+        elif employee_alias:
+            params = {'employee_alias': employee_alias, 'from_date': '2000-01-01'}
+        else:
+            raise ValueError("Give persnr or employee_alias")
+        return self.client.get_all(f"{self.endpoint}/", params)
 
     def get_recent_results(self, days: int = 30) -> List[Dict[str, Any]]:
         """
-        Get results from the last N days.
+        Get monitored exam results finished in the last N days, for all
+        your users.
 
         Args:
             days: Number of days to look back (default: 30)
@@ -111,19 +96,5 @@ class ResultResource:
         Returns:
             List of recent result dictionaries
         """
-        from datetime import datetime, timedelta
-
-        from_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
-
-        all_results = []
-        page = 1
-        while True:
-            response = self.list(from_date=from_date, page=page)
-            results = response.get('results', [])
-            all_results.extend(results)
-
-            if not response.get('next'):
-                break
-            page += 1
-
-        return all_results
+        from_date = (date.today() - timedelta(days=days)).isoformat()
+        return self.client.get_all(f"{self.endpoint}/", {'from_date': from_date})
