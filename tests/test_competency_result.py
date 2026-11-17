@@ -13,6 +13,7 @@ import pytest
 import responses
 
 from finautapi_client import FinAutAPIClient
+from finautapi_client.exceptions import FinAutAPIException
 
 BASE = 'https://api.norsktest.no/finautapi/v1/'
 URL = BASE + 'competency_result/'
@@ -130,3 +131,16 @@ def test_list_without_filters_sends_no_params(client):
     client.competency_results.list()
 
     assert _query() == {}
+
+
+@responses.activate
+def test_duplicate_completion_raises_with_status_400(client):
+    # the API's answer for an external_system + external_id + goal that is
+    # already registered
+    responses.add(responses.POST, URL, status=400, json={
+        'non_field_errors': ['The fields external_system, external_id, goal must make a unique set.']})
+
+    with pytest.raises(FinAutAPIException) as raised:
+        client.competency_results.record_completion('N3F2A', **_completion())
+    assert raised.value.status_code == 400
+    assert 'unique set' in str(raised.value)

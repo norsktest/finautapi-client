@@ -207,8 +207,10 @@ result = client.competency_results.record_completion(
 )
 ```
 
-Posting the same `external_id` twice creates two results; the API does not
-de-duplicate. A course that covers several goals is posted once per goal.
+The same `external_system` + `external_id` + `goal` is registered only once:
+posting it again raises `FinAutAPIException` with `status_code == 400`
+("must make a unique set"), so a retry is safe. A course that covers several
+goals is posted once per goal, with the same `external_id`.
 
 ### Employment Records
 ```python

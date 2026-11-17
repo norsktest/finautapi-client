@@ -7,8 +7,8 @@ result for the user. The user is identified by the encrypted user id the
 LMS received from the FinAut-login flow (get-user-id), not by persnr.
 
 By default this only prints the payload. Pass --send to post it; that
-creates a real result, and posting the same external_id again creates a
-second one.
+creates a real result. Posting the same external_system, external_id and
+goal again is rejected with a 400.
 
     FINAUT_CLIENT_ID=... FINAUT_CLIENT_SECRET=... \\
         python 07_record_competency_result.py N3F2A... --goal 12 --reward-type 3
