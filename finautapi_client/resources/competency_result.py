@@ -108,9 +108,10 @@ class CompetencyResultResource:
             - external_id: The completion's id in your LMS (max 80
               characters)
 
-        Posting the same external_id twice creates two results; the API
-        does not de-duplicate. If a course covers several goals, post once
-        per goal.
+        The same external_system + external_id + goal is registered only
+        once: posting it again raises FinAutAPIException (status_code 400,
+        "must make a unique set"), so a retry is safe. If a course covers
+        several goals, post once per goal with the same external_id.
 
         Prefer :meth:`record_completion`, which builds the links for you.
 
